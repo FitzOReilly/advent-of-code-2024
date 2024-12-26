@@ -14,25 +14,49 @@ def read_input(
     return connections
 
 
-def get_sets_of_computers(connections: dict) -> list[set[str]]:
-    sets = []
-    for comp, connected in connections.items():
-        additional_sets = [{comp}]
-        for s in sets:
-            if s <= connected | {comp}:
-                additional_sets.append(s | {comp})
-        sets.extend(additional_sets)
+def get_sets_of_three_startswith_t(connections: dict) -> set[tuple[str]]:
+    sets = set()
+    for comp1, connected1 in connections.items():
+        for comp2 in connected1:
+            connected2 = connections[comp2]
+            for comp3 in connected1 & connected2:
+                set_of_three = tuple(sorted((comp1, comp2, comp3)))
+                if any(comp.startswith("t") for comp in set_of_three):
+                    sets.add(set_of_three)
     return sets
 
 
-def filter_by_len_and_prefix(
-    sets: list[set[str]], length: int, prefix: str
-) -> list[str]:
-    filtered_sets = []
-    for s in sets:
-        if len(s) == length and any(comp.startswith(prefix) for comp in s):
-            filtered_sets.append(",".join(sorted(s)))
-    return filtered_sets
+def find_maximal_cliques(connections: dict) -> list[set[str]]:
+    max_cliques = []
+    clique = set()
+    candidates = {c for c in connections}
+    excluded = set()
+    bron_kerbosch(connections, max_cliques, clique, candidates, excluded)
+    return max_cliques
+
+
+def bron_kerbosch(
+    connections: dict,
+    max_cliques: list[set[str]],
+    clique: set[str],
+    candidates: set[str],
+    excluded: set[str],
+) -> None:
+    if len(candidates) == 0 and len(excluded) == 0:
+        max_cliques.append(clique)
+        return
+    while candidates:
+        c = candidates.pop()
+        neighbors = connections[c]
+        bron_kerbosch(
+            connections,
+            max_cliques,
+            clique | {c},
+            candidates & neighbors,
+            excluded & neighbors,
+        )
+        candidates -= {c}
+        excluded |= {c}
 
 
 def get_password(sets: list[set[str]]) -> str:
@@ -50,8 +74,8 @@ if __name__ == "__main__":
     args = parser.parse_args()
     input_file = args.input
     connections = read_input(input_file)
-    all_sets = get_sets_of_computers(connections)
-    sets_of_three = filter_by_len_and_prefix(all_sets, 3, "t")
-    password = get_password(all_sets)
+    sets_of_three = get_sets_of_three_startswith_t(connections)
     print(f"Day 23, Part 1: {len(sets_of_three)}")
+    max_cliques = find_maximal_cliques(connections)
+    password = get_password(max_cliques)
     print(f"Day 23, Part 2: {password}")
